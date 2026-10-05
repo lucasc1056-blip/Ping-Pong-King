@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ping Pong King</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef7ff;
+      --muted: #b8c9e8;
+      --cyan: #8cecff;
+      --purple: #a879ff;
+      --panel: rgba(13, 22, 54, 0.72);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 34px 18px 56px;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #070b24 0%, #17124c 38%, #381a5e 68%, #102e62 100%);
+      background-attachment: fixed;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2.2rem, 6vw, 4.4rem);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #8cecff, #ffffff, #c19cff, #8cecff);
+      background-size: 240% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 7s linear infinite;
+    }
+
+    p { color: var(--muted); }
+    .subtitle { margin: 0 auto 22px; max-width: 680px; }
+    .scoreboard, details, #aiPreviewCanvas { width: min(800px, 100%); margin-left: auto; margin-right: auto; }
+    .scoreboard { display: flex; justify-content: center; gap: 36px; margin: 20px auto 14px; font-size: 1.15rem; }
+    .score-card { min-width: 145px; padding: 12px 18px; border: 1px solid rgba(140,236,255,.4); border-radius: 18px; background: linear-gradient(135deg, rgba(55,31,111,.75), rgba(13,93,133,.5)); box-shadow: 0 10px 28px rgba(0,0,0,.2); }
+    .score-card span { display: block; color: #fff; font-size: 2rem; font-weight: 800; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .topbar { position: fixed; z-index: 10; top: 16px; left: 18px; right: 18px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; pointer-events: none; }
+    .topbar > * { pointer-events: auto; }
+    .wallet { display: inline-flex; align-items: center; gap: 10px; margin: 0; padding: 8px 14px; border: 1px solid #ffe66d; border-radius: 999px; background: linear-gradient(135deg, rgba(255,219,74,.28), rgba(255,120,208,.24)); color: #fff5a6; font-size: 1.15rem; font-weight: 800; box-shadow: 0 0 22px rgba(255,220,80,.3); backdrop-filter: blur(10px); }
+    .coin-icon { width: 38px; height: 38px; object-fit: contain; border-radius: 50%; filter: sepia(1) saturate(5) hue-rotate(345deg) brightness(1.45) contrast(1.25) drop-shadow(0 0 5px #fff06a) drop-shadow(0 0 13px #ff8cfa); }
+    .shop { position: fixed; z-index: 9; top: 0; right: 0; width: min(430px, 92vw); height: 100vh; margin: 0; padding: 92px 20px 24px; overflow-y: auto; border-left: 1px solid rgba(255, 230, 109, .5); background: linear-gradient(135deg, rgba(54, 27, 105, .97), rgba(13, 70, 111, .97)); box-shadow: -18px 0 45px rgba(0,0,0,.4); transform: translateX(105%); transition: transform .45s cubic-bezier(.7,0,.2,1); }
+    body.shop-open .shop { transform: translateX(0); }
+    body.shop-open::after { content: ''; position: fixed; inset: 0; z-index: 8; background: rgba(4, 6, 25, .52); backdrop-filter: blur(3px); }
+    .shop h2 { margin: 0 0 12px; }
+    .shop-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .shop-item { padding: 12px; border: 1px solid rgba(140,236,255,.3); border-radius: 14px; background: rgba(5, 12, 43, .45); }
+    .shop-item strong { display: block; color: #fff; margin-bottom: 5px; }
+    .shop-item small { display: block; min-height: 34px; color: var(--muted); margin-bottom: 8px; }
+    .shop-item button { padding: 7px 10px; font-size: .9rem; }
+    .shop-slider { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid rgba(140,236,255,.4); border-radius: 999px; background: rgba(11, 20, 59, .76); color: var(--cyan); font-weight: 800; backdrop-filter: blur(10px); cursor: pointer; }
+    .shop-slider input { appearance: none; width: 42px; height: 22px; border-radius: 20px; background: #39456f; outline: none; cursor: pointer; }
+    .shop-slider input::before { content: ''; display: block; width: 18px; height: 18px; margin: 2px; border-radius: 50%; background: #fff; transition: transform .25s ease; }
+    .shop-slider input:checked { background: linear-gradient(90deg, #56dfff, #bd76ff); }
+    .shop-slider input:checked::before { transform: translateX(20px); }
+    .tutorial-hidden { display: none; }
+    .round-note { color: #ffe66d; font-weight: 700; }
+    .power-status { color: #bff9ff; font-weight: 700; }
+
+    button {
+      border: 1px solid rgba(255,255,255,.32);
+      border-radius: 14px;
+      padding: 10px 16px;
+      color: white;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4c90ff, #9c61ff 55%, #ef75d5);
+      box-shadow: 0 7px 18px rgba(31, 7, 79, .35);
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    }
+    button:hover { transform: translateY(-2px); filter: brightness(1.13); box-shadow: 0 10px 24px rgba(93, 187, 255, .3); }
+    button:active { transform: translateY(1px); }
+    select { border: 1px solid rgba(255,255,255,.32); border-radius: 14px; padding: 10px 14px; color: white; font: inherit; font-weight: 700; background: linear-gradient(135deg, #4c90ff, #9c61ff); cursor: pointer; }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #101c55, #183d78 48%, #17194c);
+      border-radius: 22px;
+      border: 5px solid transparent;
+      background-clip: padding-box;
+      box-shadow: 0 0 0 2px rgba(140,236,255,.7), 0 0 32px rgba(123, 103, 255, .55), inset 0 0 35px rgba(140,236,255,.12);
+      touch-action: none;
+    }
+
+    details { margin-top: 22px; padding: 15px 18px; border: 1px solid rgba(140,236,255,.25); border-radius: 16px; background: var(--panel); }
+    summary { cursor: pointer; color: var(--cyan); font-weight: 700; }
+    h2 { color: #d9ccff; margin-top: 34px; }
+    #status { min-height: 1.4em; color: var(--cyan); font-weight: 700; }
+    @keyframes shimmer { to { background-position: 240% center; } }
+
+    canvas:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <label class="shop-slider" for="shopToggle">SHOP <input id="shopToggle" type="checkbox" aria-label="Slide open power-up shop"></label>
+    <div class="wallet"><img class="coin-icon" src="coin-icon.png" alt="Neon coin"> <span><span id="coinCount">0</span> coins</span></div>
+  </div>
+  <h1>Ping Pong King</h1>
+  <p class="subtitle">Use the mouse, touch, or the up and down arrow keys to move your paddle.</p>
+  <div class="controls">
+    <label class="difficulty-picker">Difficulty:
+      <select id="difficultySelect" aria-label="Choose difficulty">
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
+        <option value="impossible">Impossible</option>
+      </select>
+    </label>
+    <button id="startButton" type="button">Start Game</button>
+    <button id="resetButton" type="button">Reset Game</button>
+    <button id="fullscreenButton" type="button">Fullscreen Board</button>
+    <button id="pauseButton" type="button">Pause</button>
+  </div>
+  <div class="scoreboard">
+    <div class="score-card">PLAYER<span id="playerScore">0</span></div>
+    <div class="score-card">COMPUTER<span id="computerScore">0</span></div>
+  </div>
+  <p id="status">Press Start Game to begin</p>
+  <p class="round-note">First to 5 points wins the round! Easy/Normal: 10 coins · Hard: 50 · Impossible: 100. Press <strong>D</strong> anytime for a 500% faster special move.</p>
+  <p class="power-status">Instablock: press <strong>A</strong> · <span id="instablockCharges">5</span> uses remaining</p>
+  <canvas id="gameCanvas" width="800" height="500" aria-label="Ping pong game"></canvas>
+  <section class="shop" aria-label="Power-up shop">
+    <h2>⚡ Power-Up Shop</h2>
+    <div class="shop-items">
+      <div class="shop-item"><strong>Wide Paddle · 15 coins</strong><small>Make your paddle 25% taller for the next round.</small><button type="button" data-powerup="wide">Buy</button></div>
+      <div class="shop-item"><strong>Time Warp · 20 coins</strong><small>Slow the ball down for the next round.</small><button type="button" data-powerup="slow">Buy</button></div>
+      <div class="shop-item"><strong>Rocket Serve · 25 coins</strong><small>Start the next round with a faster serve.</small><button type="button" data-powerup="rocket">Buy</button></div>
+    </div>
+  </section>
+  <button id="tutorialToggle" type="button">Hide Tutorial</button>
+  <div id="tutorialSection">
+  <details>
+    <summary>About the game</summary>
+    <p>Move your paddle to return the ball. The ball gets 1% faster after every paddle bounce.</p>
+  </details>
+  <h2>30-Second Tutorial</h2>
+  <canvas id="aiPreviewCanvas" width="480" height="300" aria-label="Thirty-second ping pong tutorial"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const aiPreviewCanvas = document.getElementById('aiPreviewCanvas');
+    const context = canvas.getContext('2d');
+    const aiPreviewContext = aiPreviewCanvas.getContext('2d');
+    const startButton = document.getElementById('startButton');
+    const resetButton = document.getElementById('resetButton');
+    const fullscreenButton = document.getElementById('fullscreenButton');
+    const difficultySelect = document.getElementById('difficultySelect');
+    const playerScoreElement = document.getElementById('playerScore');
+    const computerScoreElement = document.getElementById('computerScore');
+    const statusElement = document.getElementById('status');
+    const pauseButton = document.getElementById('pauseButton');
+    const coinCountElement = document.getElementById('coinCount');
+    const shopToggle = document.getElementById('shopToggle');
+    const tutorialToggle = document.getElementById('tutorialToggle');
+    const tutorialSection = document.getElementById('tutorialSection');
+
+    const paddleWidth = 12;
+    const paddleHeight = 90;
+    const paddleMargin = 20;
+    const ballSize = 16;
+    const fastBallSpeed = 5;
+    const normalBallSpeed = fastBallSpeed * 0.5;
+
+    const player = { x: paddleMargin, y: canvas.height / 2 - paddleHeight / 2, speed: 7 };
+    const computer = { x: canvas.width - paddleMargin - paddleWidth, y: canvas.height / 2 - paddleHeight / 2, speed: 4 };
+    const ball = { x: canvas.width / 2, y: canvas.height / 2, dx: normalBallSpeed, dy: normalBallSpeed };
+
+    let playerScore = 0;
+    let computerScore = 0;
+    let speedMultiplier = 1;
+    let gameRunning = false;
+    let difficulty = 'normal';
+    let paused = false;
+    let coins = Number(localStorage.getItem('pingPongCoins') || 0);
+    let roundWins = 0;
+    const activePowerUps = new Set();
+    let currentPaddleHeight = paddleHeight;
+    let instablockCharges = 5;
+    let canEmote = false;
+    let playerEmote = '';
+    let animationFrame;
+    let aiPreviewFrame;
+    const keys = new Set();
+    const trail = [];
+    const sparks = [];
+    let lastFrame = performance.now();
+
+    function getStartingBallSpeed() {
+      return difficulty === 'hard' || difficulty === 'impossible' ? fastBallSpeed : normalBallSpeed;
+    }
+
+    function resetBall(direction) {
+      ball.x = canvas.width / 2 - ballSize / 2;
+      ball.y = canvas.height / 2 - ballSize / 2;
+      const startingBallSpeed = getStartingBallSpeed() * (activePowerUps.has('rocket') ? 1.25 : 1) * (activePowerUps.has('slow') ? .72 : 1);
+      ball.dx = startingBallSpeed * direction;
+      ball.dy = (Math.random() > 0.5 ? 1 : -1) * startingBallSpeed * 0.7;
+      trail.length = 0;
+    }
+
+    function resetGame() {
+      cancelAnimationFrame(animationFrame);
+      playerScore = 0;
+      computerScore = 0;
+      roundWins = 0;
+      instablockCharges = 5;
+      canEmote = false;
+      playerEmote = '';
+      currentPaddleHeight = activePowerUps.has('wide') ? paddleHeight * 1.25 : paddleHeight;
+      speedMultiplier = 1;
+      player.y = canvas.height / 2 - paddleHeight / 2;
+      computer.y = canvas.height / 2 - paddleHeight / 2;
+      resetBall(Math.random() > 0.5 ? 1 : -1);
+      gameRunning = false;
+      statusElement.textContent = 'Press Start Game to begin';
+      updateScore();
+      updatePowerStatus();
+      pauseButton.textContent = 'Pause';
+      paused = false;
+      draw();
+    }
+
+    function updateScore() {
+      playerScoreElement.textContent = playerScore;
+      computerScoreElement.textContent = computerScore;
+    }
+
+    function keepPaddleOnTable(paddle) {
+      paddle.y = Math.max(0, Math.min(canvas.height - (paddle === player ? currentPaddleHeight : paddleHeight), paddle.y));
+    }
+
+    function paddleCollision(paddle) {
+      return ball.x < paddle.x + paddleWidth &&
+        ball.x + ballSize > paddle.x &&
+        ball.y < paddle.y + (paddle === player ? currentPaddleHeight : paddleHeight) &&
+        ball.y + ballSize > paddle.y;
+    }
+
+    function bounceOffPaddle(paddle, direction) {
+      const paddleCenter = paddle.y + (paddle === player ? currentPaddleHeight : paddleHeight) / 2;
+      const ballCenter = ball.y + ballSize / 2;
+      const hitPosition = (ballCenter - paddleCenter) / ((paddle === player ? currentPaddleHeight : paddleHeight) / 2);
+      const speedIncrease = difficulty === 'hard' || difficulty === 'impossible' ? 1.02 : 1.01;
+      const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy) * speedIncrease;
+      const angle = hitPosition * (Math.PI / 3);
+      ball.dx = direction * currentSpeed * Math.cos(angle);
+      ball.dy = currentSpeed * Math.sin(angle);
+      speedMultiplier *= 1.01;
+      for (let i = 0; i < 12; i++) sparks.push({ x: ball.x + ballSize / 2, y: ball.y + ballSize / 2, vx: (Math.random() - .5) * 4, vy: (Math.random() - .5) * 4, life: 1 });
+    }
+
+    function update() {
+      if (keys.has('ArrowUp')) player.y -= player.speed;
+      if (keys.has('ArrowDown')) player.y += player.speed;
+      keepPaddleOnTable(player);
+
+      const computerTarget = ball.y - paddleHeight / 2;
+      if (difficulty === 'impossible') {
+        computer.y = computerTarget;
+      } else {
+        const aiSpeed = difficulty === 'easy' ? .75 : difficulty === 'hard' ? 6 : computer.speed;
+        computer.y += Math.sign(computerTarget - computer.y) * Math.min(aiSpeed, Math.abs(computerTarget - computer.y));
+      }
+      keepPaddleOnTable(computer);
+
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+      trail.push({ x: ball.x + ballSize / 2, y: ball.y + ballSize / 2 });
+      if (trail.length > 14) trail.shift();
+      sparks.forEach(s => { s.x += s.vx; s.y += s.vy; s.life -= .045; });
+      while (sparks.length && sparks[0].life <= 0) sparks.shift();
+
+      if (ball.y <= 0 || ball.y + ballSize >= canvas.height) {
+        ball.dy *= -1;
+      }
+
+      if (ball.dx < 0 && paddleCollision(player)) {
+        ball.x = player.x + paddleWidth;
+        bounceOffPaddle(player, 1);
+      }
+
+      if (ball.dx > 0 && paddleCollision(computer)) {
+        ball.x = computer.x - ballSize;
+        bounceOffPaddle(computer, -1);
+      }
+
+      if (ball.x + ballSize < 0) {
+        computerScore++;
+        statusElement.textContent = 'Computer scores — keep your eye on the ball!';
+        updateScore();
+        resetBall(1);
+      }
+
+      if (ball.x > canvas.width) {
+        playerScore++;
+        statusElement.textContent = 'Point for you!';
+        updateScore();
+        resetBall(-1);
+      }
+      if (playerScore >= 5 || computerScore >= 5) finishRound(playerScore >= 5);
+    }
+
+    function finishRound(playerWon) {
+      gameRunning = false;
+      paused = false;
+      const roundReward = difficulty === 'impossible' ? 100 : difficulty === 'hard' ? 50 : 10;
+      if (playerWon) { roundWins++; canEmote = true; coins += roundReward; localStorage.setItem('pingPongCoins', coins); updateWallet(); }
+      statusElement.textContent = playerWon ? `🏆 Round won! +${roundReward} coins. Press Start for the next round.` : 'Computer wins the round. Press Start to try again.';
+      pauseButton.textContent = 'Pause';
+    }
+
+    function updateWallet() { coinCountElement.textContent = coins; }
+
+    function useSpecialMove() {
+      if (!gameRunning || paused) return;
+      ball.dx *= 5;
+      ball.dy *= 5;
+      for (let i = 0; i < 30; i++) sparks.push({ x: ball.x + ballSize / 2, y: ball.y + ballSize / 2, vx: (Math.random() - .5) * 8, vy: (Math.random() - .5) * 8, life: 1 });
+      statusElement.textContent = '⚡ SPECIAL MOVE! The ball is traveling 500% faster!';
+    }
+
+    function useInstablock() {
+      if (!gameRunning || paused) return;
+      if (instablockCharges <= 0) {
+        statusElement.textContent = 'Instablock is out of charges for this game.';
+        return;
+      }
+      instablockCharges--;
+      ball.x = player.x + paddleWidth;
+      bounceOffPaddle(player, 1);
+      updatePowerStatus();
+      for (let i = 0; i < 20; i++) sparks.push({ x: ball.x + ballSize / 2, y: ball.y + ballSize / 2, vx: (Math.random() - .5) * 7, vy: (Math.random() - .5) * 7, life: 1 });
+      statusElement.textContent = `🛡️ INSTABLOCK! Ball returned. ${instablockCharges} uses remaining.`;
+    }
+
+    function updatePowerStatus() {
+      document.getElementById('instablockCharges').textContent = instablockCharges;
+    }
+
+    function draw() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const bg = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bg.addColorStop(0, '#101c55'); bg.addColorStop(.5, '#183d78'); bg.addColorStop(1, '#321654');
+      context.fillStyle = bg; context.fillRect(0, 0, canvas.width, canvas.height);
+      context.strokeStyle = 'rgba(167, 236, 255, .45)'; context.lineWidth = 3; context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+      context.setLineDash([8, 8]);
+      context.beginPath();
+      context.moveTo(canvas.width / 2, 0);
+      context.lineTo(canvas.width / 2, canvas.height);
+      context.strokeStyle = 'rgba(203, 190, 255, .5)'; context.stroke();
+      context.setLineDash([]);
+      const paddleGradient = context.createLinearGradient(0, 0, paddleWidth, paddleHeight);
+      paddleGradient.addColorStop(0, '#e6fcff'); paddleGradient.addColorStop(.35, '#8cecff'); paddleGradient.addColorStop(1, '#4ca8ff');
+      context.fillStyle = paddleGradient; context.shadowColor = '#65dcff'; context.shadowBlur = 18;
+      context.beginPath(); context.roundRect(player.x, player.y, paddleWidth, currentPaddleHeight, 8); context.fill();
+      context.beginPath(); context.roundRect(computer.x, computer.y, paddleWidth, paddleHeight, 8); context.fill();
+      trail.forEach((point, index) => { context.globalAlpha = index / trail.length * .35; context.fillStyle = '#8cecff'; context.beginPath(); context.arc(point.x, point.y, 3 + index / 6, 0, Math.PI * 2); context.fill(); });
+      context.globalAlpha = 1; context.fillStyle = '#fff6b0'; context.shadowColor = '#fff0a0'; context.shadowBlur = 24;
+      context.beginPath(); context.arc(ball.x + ballSize / 2, ball.y + ballSize / 2, ballSize / 2, 0, Math.PI * 2); context.fill();
+      sparks.forEach(s => { context.globalAlpha = s.life; context.fillStyle = '#f6a7ff'; context.beginPath(); context.arc(s.x, s.y, 2.5, 0, Math.PI * 2); context.fill(); });
+      if (playerEmote) {
+        context.globalAlpha = 1;
+        context.shadowColor = '#fff'; context.shadowBlur = 16;
+        context.font = '34px sans-serif'; context.textAlign = 'center';
+        context.fillText(playerEmote, player.x + paddleWidth / 2, Math.max(38, player.y - 12));
+      }
+      context.globalAlpha = 1; context.shadowBlur = 0;
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+      update();
+      draw();
+      animationFrame = requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      if (gameRunning || paused) return;
+      if (playerScore >= 5 || computerScore >= 5) { playerScore = 0; computerScore = 0; canEmote = false; playerEmote = ''; updateScore(); resetBall(Math.random() > .5 ? 1 : -1); }
+      gameRunning = true;
+      statusElement.textContent = `${difficulty[0].toUpperCase() + difficulty.slice(1)} difficulty — return the ball!`;
+      gameLoop();
+    }
+
+    function movePlayerToPointer(event) {
+      const bounds = canvas.getBoundingClientRect();
+      const pointerY = event.touches ? event.touches[0].clientY : event.clientY;
+      player.y = pointerY - bounds.top - currentPaddleHeight / 2;
+      keepPaddleOnTable(player);
+    }
+
+    startButton.addEventListener('click', startGame);
+    resetButton.addEventListener('click', resetGame);
+    pauseButton.addEventListener('click', () => {
+      if (!gameRunning && !paused) return;
+      paused = !paused;
+      gameRunning = !paused;
+      pauseButton.textContent = paused ? 'Resume' : 'Pause';
+      statusElement.textContent = paused ? 'Game paused' : 'Game resumed — return the ball!';
+      if (gameRunning) gameLoop();
+    });
+    shopToggle.addEventListener('change', () => document.body.classList.toggle('shop-open', shopToggle.checked));
+    tutorialToggle.addEventListener('click', () => {
+      const hidden = tutorialSection.classList.toggle('tutorial-hidden');
+      tutorialToggle.textContent = hidden ? 'Show Tutorial' : 'Hide Tutorial';
+    });
+    document.querySelectorAll('[data-powerup]').forEach(button => button.addEventListener('click', () => {
+      const prices = { wide: 15, slow: 20, rocket: 25 };
+      const powerup = button.dataset.powerup;
+      if (coins < prices[powerup]) { statusElement.textContent = 'Not enough coins yet — win rounds to earn more!'; return; }
+      coins -= prices[powerup];
+      activePowerUps.add(powerup);
+      localStorage.setItem('pingPongCoins', coins); updateWallet();
+      const loadout = [...activePowerUps].map(item => item === 'wide' ? 'Wide Paddle' : item === 'slow' ? 'Time Warp' : 'Rocket Serve').join(' + ');
+      statusElement.textContent = `${loadout} equipped together for the next round!`;
+      resetGame();
+    }));
+    difficultySelect.addEventListener('change', () => {
+      difficulty = difficultySelect.value;
+      resetBall(Math.random() > 0.5 ? 1 : -1);
+      statusElement.textContent = `${difficulty[0].toUpperCase() + difficulty.slice(1)} difficulty selected.`;
+      draw();
+    });
+    fullscreenButton.addEventListener('click', async () => {
+      if (!document.fullscreenElement) {
+        await canvas.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    });
+    window.addEventListener('keydown', event => {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        keys.add(event.key);
+      }
+      if (event.key === ' ' || event.key === 'Enter') startGame();
+      if (event.key.toLowerCase() === 'd') useSpecialMove();
+      if (event.key.toLowerCase() === 'a') useInstablock();
+      if (canEmote && ['w', 's', 'x'].includes(event.key.toLowerCase())) {
+        playerEmote = { w: '😎', s: '😂', x: '👑' }[event.key.toLowerCase()];
+        statusElement.textContent = `${playerEmote} Emote activated! The AI has been defeated.`;
+        draw();
+      }
+    });
+    window.addEventListener('keyup', event => keys.delete(event.key));
+    canvas.addEventListener('mousemove', movePlayerToPointer);
+    canvas.addEventListener('touchmove', event => {
+      event.preventDefault();
+      movePlayerToPointer(event);
+    }, { passive: false });
+
+    function runAiPreview() {
+      const preview = {
+        leftY: 105,
+        rightY: 105,
+        ballX: 240,
+        ballY: 145,
+        ballDX: 3,
+        ballDY: 2,
+        playerScore: 0,
+        computerScore: 0
+      };
+      const startedAt = performance.now();
+
+      function animatePreview(now) {
+        if (now - startedAt >= 30000) {
+          aiPreviewContext.clearRect(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+          const previewGradient = aiPreviewContext.createLinearGradient(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+          previewGradient.addColorStop(0, '#111c55'); previewGradient.addColorStop(1, '#44205f');
+          aiPreviewContext.fillStyle = previewGradient;
+          aiPreviewContext.fillRect(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+          aiPreviewContext.fillStyle = 'black';
+          aiPreviewContext.font = '18px sans-serif';
+          aiPreviewContext.textAlign = 'center';
+          aiPreviewContext.fillText('Tutorial complete — enjoy the game!', aiPreviewCanvas.width / 2, aiPreviewCanvas.height / 2);
+          return;
+        }
+
+        const elapsedSeconds = (now - startedAt) / 1000;
+        const movementLesson = elapsedSeconds >= 5 && elapsedSeconds < 11;
+        const returnLesson = elapsedSeconds >= 11 && elapsedSeconds < 17;
+        const scoringLesson = elapsedSeconds >= 17 && elapsedSeconds < 23;
+        const hardModeLesson = elapsedSeconds >= 23;
+
+        preview.ballX += preview.ballDX * (hardModeLesson ? 1.02 : 1);
+        preview.ballY += preview.ballDY * (hardModeLesson ? 1.02 : 1);
+        if (preview.ballY <= 0 || preview.ballY >= aiPreviewCanvas.height - 8) preview.ballDY *= -1;
+        if (preview.ballX <= 24) {
+          if (returnLesson || hardModeLesson) preview.ballDX *= -1;
+          else {
+            preview.computerScore++;
+            preview.ballX = 240;
+            preview.ballY = 145;
+            preview.ballDX = 3;
+          }
+        }
+        if (preview.ballX >= aiPreviewCanvas.width - 32) {
+          preview.ballDX *= -1;
+          preview.playerScore++;
+        }
+
+        if (movementLesson || returnLesson || hardModeLesson) {
+          preview.leftY += (preview.ballY - preview.leftY - 35) * 0.12;
+        }
+        if (returnLesson || hardModeLesson) {
+          preview.rightY += (preview.ballY - preview.rightY - 35) * 0.12;
+        }
+        if (scoringLesson) {
+          preview.leftY = 8;
+          preview.rightY += (preview.ballY - preview.rightY - 35) * 0.12;
+        }
+
+        aiPreviewContext.clearRect(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+        const previewGradient = aiPreviewContext.createLinearGradient(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+        previewGradient.addColorStop(0, '#101c55'); previewGradient.addColorStop(.5, '#183d78'); previewGradient.addColorStop(1, '#321654');
+        aiPreviewContext.fillStyle = previewGradient;
+        aiPreviewContext.fillRect(0, 0, aiPreviewCanvas.width, aiPreviewCanvas.height);
+        aiPreviewContext.strokeStyle = '#8cecff';
+        aiPreviewContext.lineWidth = 5;
+        aiPreviewContext.strokeRect(2.5, 2.5, aiPreviewCanvas.width - 5, aiPreviewCanvas.height - 5);
+        aiPreviewContext.fillStyle = '#8cecff';
+        aiPreviewContext.beginPath(); aiPreviewContext.roundRect(14, preview.leftY, 10, 70, 5); aiPreviewContext.fill();
+        aiPreviewContext.beginPath(); aiPreviewContext.roundRect(aiPreviewCanvas.width - 24, preview.rightY, 10, 70, 5); aiPreviewContext.fill();
+        aiPreviewContext.fillStyle = '#fff6b0';
+        aiPreviewContext.beginPath(); aiPreviewContext.arc(preview.ballX + 4, preview.ballY + 4, 4, 0, Math.PI * 2); aiPreviewContext.fill();
+        aiPreviewContext.fillStyle = '#f1ecff';
+        aiPreviewContext.font = 'bold 18px sans-serif';
+        aiPreviewContext.textAlign = 'center';
+
+        let tutorialText = 'Welcome to Ping Pong King';
+        let tutorialSubtext = 'Watch this quick tutorial to learn how to play';
+        if (elapsedSeconds >= 5 && elapsedSeconds < 11) {
+          tutorialText = '1. Move your paddle';
+          tutorialSubtext = 'Use your mouse, touch, or the arrow keys';
+        } else if (elapsedSeconds >= 11 && elapsedSeconds < 17) {
+          tutorialText = '2. Return the ball';
+          tutorialSubtext = 'Hit the ball before it passes your paddle';
+        } else if (elapsedSeconds >= 17 && elapsedSeconds < 23) {
+          tutorialText = '3. Score points';
+          tutorialSubtext = 'Send the ball past your opponent to score';
+        } else if (elapsedSeconds >= 23) {
+          tutorialText = '4. Try Hard Mode';
+          tutorialSubtext = 'The ball speeds up 2% after every paddle bounce';
+        }
+        aiPreviewContext.fillText(tutorialText, aiPreviewCanvas.width / 2, 34);
+        aiPreviewContext.font = '14px sans-serif';
+        aiPreviewContext.fillText(tutorialSubtext, aiPreviewCanvas.width / 2, 55);
+        if (scoringLesson) {
+          aiPreviewContext.font = 'bold 14px sans-serif';
+          aiPreviewContext.fillText(`Player ${preview.playerScore} - Computer ${preview.computerScore}`, aiPreviewCanvas.width / 2, aiPreviewCanvas.height - 14);
+        }
+        aiPreviewFrame = requestAnimationFrame(animatePreview);
+      }
+
+      aiPreviewFrame = requestAnimationFrame(animatePreview);
+    }
+
+    resetGame();
+    updateWallet();
+    runAiPreview();
+  </script>
+</body>
+</html>
